@@ -78,7 +78,7 @@ jobs:
 Static analysis with PR comments - no license required:
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
 ```
 
 ### AI-Powered Analysis
@@ -86,7 +86,7 @@ Static analysis with PR comments - no license required:
 Enable AI recommendations with a Pro or Team license:
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: true
@@ -97,7 +97,7 @@ Enable AI recommendations with a Pro or Team license:
 Block merges if critical or high severity issues are found:
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: true
@@ -109,7 +109,7 @@ Block merges if critical or high severity issues are found:
 Analyze only a specific CDK stack:
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   with:
     stack-name: ProductionStack
 ```
@@ -119,7 +119,7 @@ Analyze only a specific CDK stack:
 Upload results to GitHub's Security tab:
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   with:
     sarif-upload: true
 ```
@@ -137,7 +137,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: cdkinsights/cdk-insights-action@v1
+      - uses: TheLeePriest/cdk-insights-action@v1
         with:
           working-directory: packages/${{ matrix.project }}
           license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
@@ -146,7 +146,7 @@ jobs:
 ### Using Outputs in Subsequent Steps
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   id: analysis
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
@@ -164,7 +164,7 @@ jobs:
 ### Filter by AWS Services
 
 ```yaml
-- uses: cdkinsights/cdk-insights-action@v1
+- uses: TheLeePriest/cdk-insights-action@v1
   with:
     services: S3,Lambda,DynamoDB,IAM
 ```
@@ -222,7 +222,7 @@ When `pr-comment: true` (default), the action posts a summary like:
 ## Support
 
 - Documentation: [cdkinsights.dev/docs](https://cdkinsights.dev/docs)
-- Issues: [github.com/cdkinsights/cdk-insights-action/issues](https://github.com/cdkinsights/cdk-insights-action/issues)
+- Issues: [github.com/TheLeePriest/cdk-insights-action/issues](https://github.com/TheLeePriest/cdk-insights-action/issues)
 - Email: support@cdkinsights.dev
 
 ## License
