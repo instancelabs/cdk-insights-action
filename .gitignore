@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Build output (dist is committed for actions)
+# dist/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Test output
+coverage/
+*.log
+
+# Local env files
+.env
+.env.local

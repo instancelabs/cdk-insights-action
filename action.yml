@@ -1,0 +1,96 @@
+name: 'CDK Insights'
+description: 'Analyze AWS CDK infrastructure for security, cost, and best practices'
+author: 'CDK Insights'
+branding:
+  icon: 'shield'
+  color: 'purple'
+
+inputs:
+  license-key:
+    description: 'CDK Insights license key (required for AI analysis)'
+    required: false
+    default: ''
+
+  working-directory:
+    description: 'Directory containing CDK project'
+    required: false
+    default: '.'
+
+  stack-name:
+    description: 'Specific stack to analyze (optional, analyzes all by default)'
+    required: false
+    default: ''
+
+  ai-analysis:
+    description: 'Enable AI-powered analysis (requires license)'
+    required: false
+    default: 'false'
+
+  fail-on:
+    description: 'Fail workflow on severity levels (comma-separated: critical,high,medium,low)'
+    required: false
+    default: ''
+
+  pr-comment:
+    description: 'Post analysis summary as PR comment'
+    required: false
+    default: 'true'
+
+  sarif-upload:
+    description: 'Upload SARIF results to GitHub Code Scanning'
+    required: false
+    default: 'false'
+
+  output-format:
+    description: 'Additional output format (json, markdown, table)'
+    required: false
+    default: ''
+
+  output-file:
+    description: 'Write results to file'
+    required: false
+    default: ''
+
+  services:
+    description: 'Filter analysis to specific AWS services (comma-separated)'
+    required: false
+    default: ''
+
+  rule-filter:
+    description: 'Filter to specific rules (comma-separated rule IDs)'
+    required: false
+    default: ''
+
+  cdk-insights-version:
+    description: 'Specific version of cdk-insights to use (default: latest)'
+    required: false
+    default: 'latest'
+
+outputs:
+  total-issues:
+    description: 'Total number of issues found'
+
+  critical-count:
+    description: 'Number of critical issues'
+
+  high-count:
+    description: 'Number of high severity issues'
+
+  medium-count:
+    description: 'Number of medium severity issues'
+
+  low-count:
+    description: 'Number of low severity issues'
+
+  sarif-file:
+    description: 'Path to SARIF file (if generated)'
+
+  json-file:
+    description: 'Path to JSON results file'
+
+  exit-code:
+    description: 'Exit code from analysis (0 = success, 1 = issues found at fail-on severity)'
+
+runs:
+  using: 'node20'
+  main: 'dist/index.js'

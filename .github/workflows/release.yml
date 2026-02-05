@@ -1,0 +1,65 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: ${{ steps.version.outputs.version }}
+          body: |
+            ## CDK Insights Action ${{ steps.version.outputs.version }}
+
+            See [CHANGELOG.md](https://github.com/cdkinsights/cdk-insights-action/blob/main/CHANGELOG.md) for details.
+
+            ### Usage
+
+            ```yaml
+            - uses: cdkinsights/cdk-insights-action@${{ steps.version.outputs.version }}
+              with:
+                license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
+                ai-analysis: true
+            ```
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update major version tag
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+
+          # Update or create the major version tag (e.g., v1)
+          git tag -fa $MAJOR -m "Update $MAJOR tag to $VERSION"
+          git push origin $MAJOR --force
