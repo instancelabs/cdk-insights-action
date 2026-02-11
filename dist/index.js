@@ -28196,6 +28196,72 @@ module.exports = {
 
 /***/ }),
 
+/***/ 4970:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildScanArgs = buildScanArgs;
+exports.buildSarifArgs = buildSarifArgs;
+/**
+ * Build CLI arguments for the main scan command.
+ * Pure function — no side effects, fully testable.
+ */
+function buildScanArgs(inputs) {
+    const args = ['scan'];
+    // Stack name or analyze all
+    if (inputs.stackName) {
+        args.push(inputs.stackName);
+    }
+    else {
+        args.push('--all');
+    }
+    // Skip interactive prompts in CI
+    args.push('--yes');
+    // Disable CLI's built-in failOnCritical so the action controls failure
+    args.push('--no-failOnCritical');
+    // AI analysis is controlled by CDK_INSIGHTS_LICENSE_KEY env var (no --ai flag in CLI)
+    // Use --local to force static-only analysis when user has a license but wants to skip AI
+    if (!inputs.aiAnalysis && inputs.licenseKey) {
+        args.push('--local');
+    }
+    // PR comment (uses gh CLI, which auto-authenticates via GITHUB_TOKEN in GitHub Actions)
+    if (inputs.prComment) {
+        args.push('--prComment');
+    }
+    // Services filter (yargs array type — pass as individual args)
+    if (inputs.services.length > 0) {
+        args.push('--services', ...inputs.services);
+    }
+    // Rule filter (yargs array type — pass as individual args)
+    if (inputs.ruleFilter.length > 0) {
+        args.push('--ruleFilter', ...inputs.ruleFilter);
+    }
+    // Output as JSON (CLI auto-generates {stackName}_analysis_report.json)
+    args.push('--format', 'json');
+    return args;
+}
+/**
+ * Build CLI arguments for the SARIF generation run.
+ */
+function buildSarifArgs(inputs) {
+    const args = ['scan'];
+    if (inputs.stackName) {
+        args.push(inputs.stackName);
+    }
+    else {
+        args.push('--all');
+    }
+    args.push('--yes');
+    args.push('--no-failOnCritical');
+    args.push('--format', 'sarif');
+    return args;
+}
+
+
+/***/ }),
+
 /***/ 8422:
 /***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
 
@@ -28343,8 +28409,6 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.buildScanArgs = buildScanArgs;
-exports.buildSarifArgs = buildSarifArgs;
 const core = __importStar(__nccwpck_require__(7484));
 const exec = __importStar(__nccwpck_require__(5236));
 const tc = __importStar(__nccwpck_require__(3472));
@@ -28352,6 +28416,7 @@ const fs = __importStar(__nccwpck_require__(9896));
 const path = __importStar(__nccwpck_require__(6928));
 const inputs_1 = __nccwpck_require__(8422);
 const outputs_1 = __nccwpck_require__(7729);
+const args_1 = __nccwpck_require__(4970);
 const TOOL_NAME = 'cdk-insights';
 const REPORT_SUFFIX = '_analysis_report';
 /**
@@ -28444,60 +28509,6 @@ function findReportFiles(dir, ext) {
         .filter(f => f.endsWith(suffix))
         .map(f => path.join(dir, f));
 }
-/**
- * Build CLI arguments for the main scan command.
- * Pure function — no side effects, fully testable.
- */
-function buildScanArgs(inputs) {
-    const args = ['scan'];
-    // Stack name or analyze all
-    if (inputs.stackName) {
-        args.push(inputs.stackName);
-    }
-    else {
-        args.push('--all');
-    }
-    // Skip interactive prompts in CI
-    args.push('--yes');
-    // Disable CLI's built-in failOnCritical so the action controls failure
-    args.push('--no-failOnCritical');
-    // AI analysis is controlled by CDK_INSIGHTS_LICENSE_KEY env var (no --ai flag in CLI)
-    // Use --local to force static-only analysis when user has a license but wants to skip AI
-    if (!inputs.aiAnalysis && inputs.licenseKey) {
-        args.push('--local');
-    }
-    // PR comment (uses gh CLI, which auto-authenticates via GITHUB_TOKEN in GitHub Actions)
-    if (inputs.prComment) {
-        args.push('--prComment');
-    }
-    // Services filter (yargs array type — pass as individual args)
-    if (inputs.services.length > 0) {
-        args.push('--services', ...inputs.services);
-    }
-    // Rule filter (yargs array type — pass as individual args)
-    if (inputs.ruleFilter.length > 0) {
-        args.push('--ruleFilter', ...inputs.ruleFilter);
-    }
-    // Output as JSON (CLI auto-generates {stackName}_analysis_report.json)
-    args.push('--format', 'json');
-    return args;
-}
-/**
- * Build CLI arguments for the SARIF generation run.
- */
-function buildSarifArgs(inputs) {
-    const args = ['scan'];
-    if (inputs.stackName) {
-        args.push(inputs.stackName);
-    }
-    else {
-        args.push('--all');
-    }
-    args.push('--yes');
-    args.push('--no-failOnCritical');
-    args.push('--format', 'sarif');
-    return args;
-}
 async function run() {
     try {
         const inputs = (0, inputs_1.parseInputs)();
@@ -28508,7 +28519,7 @@ async function run() {
         if (inputs.aiAnalysis && !inputs.licenseKey) {
             core.warning('AI analysis requested but no license key provided - using static analysis only');
         }
-        const args = buildScanArgs(inputs);
+        const args = (0, args_1.buildScanArgs)(inputs);
         core.startGroup('Running CDK Insights Analysis');
         core.info(`Command: cdk-insights ${args.join(' ')}`);
         const { exitCode, stdout, stderr } = await runAnalysis(args, inputs.workingDirectory, inputs.licenseKey);
@@ -28539,7 +28550,7 @@ async function run() {
         let sarifFiles = [];
         if (inputs.sarifUpload) {
             core.info('Generating SARIF output...');
-            const sarifArgs = buildSarifArgs(inputs);
+            const sarifArgs = (0, args_1.buildSarifArgs)(inputs);
             const sarifResult = await runAnalysis(sarifArgs, inputs.workingDirectory, inputs.licenseKey);
             sarifFiles = findReportFiles(inputs.workingDirectory, 'sarif');
             if (sarifResult.exitCode !== 0 && sarifFiles.length === 0) {
