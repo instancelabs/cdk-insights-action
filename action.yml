@@ -22,7 +22,7 @@ inputs:
     default: ''
 
   ai-analysis:
-    description: 'Enable AI-powered analysis (requires license)'
+    description: 'Enable AI-powered analysis (requires license-key to be set)'
     required: false
     default: 'false'
 
@@ -37,19 +37,9 @@ inputs:
     default: 'true'
 
   sarif-upload:
-    description: 'Upload SARIF results to GitHub Code Scanning'
+    description: 'Generate SARIF results file (upload via github/codeql-action/upload-sarif@v3)'
     required: false
     default: 'false'
-
-  output-format:
-    description: 'Additional output format (json, markdown, table)'
-    required: false
-    default: ''
-
-  output-file:
-    description: 'Write results to file'
-    required: false
-    default: ''
 
   services:
     description: 'Filter analysis to specific AWS services (comma-separated)'

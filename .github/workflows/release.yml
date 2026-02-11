@@ -31,18 +31,18 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.version.outputs.version }}
           body: |
             ## CDK Insights Action ${{ steps.version.outputs.version }}
 
-            See [CHANGELOG.md](https://github.com/cdkinsights/cdk-insights-action/blob/main/CHANGELOG.md) for details.
+            See [CHANGELOG.md](https://github.com/TheLeePriest/cdk-insights-action/blob/main/CHANGELOG.md) for details.
 
             ### Usage
 
             ```yaml
-            - uses: cdkinsights/cdk-insights-action@${{ steps.version.outputs.version }}
+            - uses: TheLeePriest/cdk-insights-action@${{ steps.version.outputs.version }}
               with:
                 license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
                 ai-analysis: true

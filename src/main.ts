@@ -1,30 +1,71 @@
 import * as core from '@actions/core';
 import * as exec from '@actions/exec';
-import * as io from '@actions/io';
+import * as tc from '@actions/tool-cache';
 import * as fs from 'fs';
 import * as path from 'path';
-import { parseInputs } from './inputs';
-import { parseResults, setOutputs } from './outputs';
+import { ActionInputs, parseInputs } from './inputs';
+import { aggregateResults, setOutputs } from './outputs';
 
-const SARIF_FILE = 'cdk-insights-results.sarif';
-const JSON_FILE = 'cdk-insights-results.json';
+const TOOL_NAME = 'cdk-insights';
+const REPORT_SUFFIX = '_analysis_report';
 
-async function installCdkInsights(version: string): Promise<void> {
-  const packageSpec = version === 'latest' ? 'cdk-insights' : `cdk-insights@${version}`;
+/**
+ * Resolve the version string to install.
+ * If 'latest', queries npm for the actual version number (needed for cache key).
+ */
+async function resolveVersion(version: string): Promise<string> {
+  if (version !== 'latest') return version;
 
-  core.info(`Installing ${packageSpec}...`);
+  let stdout = '';
+  await exec.exec('npm', ['view', 'cdk-insights', 'version'], {
+    silent: true,
+    listeners: {
+      stdout: (data: Buffer) => {
+        stdout += data.toString();
+      },
+    },
+  });
 
-  await exec.exec('npm', ['install', '-g', packageSpec], {
+  return stdout.trim();
+}
+
+/**
+ * Install cdk-insights CLI with tool caching.
+ * On first run: installs via npm and caches. On subsequent runs: restores from cache.
+ */
+async function installCdkInsights(requestedVersion: string): Promise<void> {
+  const version = await resolveVersion(requestedVersion);
+  core.info(`Resolved cdk-insights version: ${version}`);
+
+  // Check tool cache first
+  const cachedPath = tc.find(TOOL_NAME, version);
+  if (cachedPath) {
+    core.info(`Using cached cdk-insights ${version}`);
+    core.addPath(path.join(cachedPath, 'bin'));
+    return;
+  }
+
+  // Not cached — install to a temp directory and cache it
+  core.info(`Installing cdk-insights@${version}...`);
+  const installDir = path.join(process.env.RUNNER_TEMP || '/tmp', `cdk-insights-${version}`);
+  fs.mkdirSync(installDir, { recursive: true });
+
+  await exec.exec('npm', ['install', '--prefix', installDir, `cdk-insights@${version}`], {
     silent: false,
   });
 
-  // Verify installation
-  const cdkInsightsPath = await io.which('cdk-insights', false);
-  if (!cdkInsightsPath) {
-    throw new Error('cdk-insights installation failed - command not found in PATH');
+  // The binary is at installDir/node_modules/.bin/cdk-insights
+  const binDir = path.join(installDir, 'node_modules', '.bin');
+  const cdkInsightsPath = path.join(binDir, 'cdk-insights');
+  if (!fs.existsSync(cdkInsightsPath)) {
+    throw new Error('cdk-insights installation failed - binary not found after npm install');
   }
 
-  core.info('cdk-insights installed successfully');
+  // Cache the install directory for future runs
+  const cached = await tc.cacheDir(installDir, TOOL_NAME, version);
+  core.addPath(path.join(cached, 'node_modules', '.bin'));
+
+  core.info(`cdk-insights ${version} installed and cached`);
 }
 
 async function runAnalysis(
@@ -35,13 +76,16 @@ async function runAnalysis(
   let stdout = '';
   let stderr = '';
 
-  const env: Record<string, string> = {
-    ...process.env as Record<string, string>,
-    // Force CI mode
-    CI: 'true',
-  };
+  const env: Record<string, string> = { CI: 'true' };
 
-  // Only set license key if provided
+  // Copy defined env vars (process.env values can be undefined)
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      env[key] = value;
+    }
+  }
+
+  // Set license key if provided (controls AI analysis in the CLI)
   if (licenseKey) {
     env.CDK_INSIGHTS_LICENSE_KEY = licenseKey;
   }
@@ -63,37 +107,81 @@ async function runAnalysis(
   return { exitCode, stdout, stderr };
 }
 
-async function uploadSarif(sarifPath: string): Promise<void> {
-  if (!fs.existsSync(sarifPath)) {
-    core.warning(`SARIF file not found at ${sarifPath}, skipping upload`);
-    return;
+/**
+ * Find auto-generated report files matching {stackName}_analysis_report.{ext}
+ */
+function findReportFiles(dir: string, ext: string): string[] {
+  if (!fs.existsSync(dir)) return [];
+  const suffix = `${REPORT_SUFFIX}.${ext}`;
+  return fs.readdirSync(dir)
+    .filter(f => f.endsWith(suffix))
+    .map(f => path.join(dir, f));
+}
+
+/**
+ * Build CLI arguments for the main scan command.
+ * Pure function — no side effects, fully testable.
+ */
+export function buildScanArgs(inputs: ActionInputs): string[] {
+  const args: string[] = ['scan'];
+
+  // Stack name or analyze all
+  if (inputs.stackName) {
+    args.push(inputs.stackName);
+  } else {
+    args.push('--all');
   }
 
-  core.info('Uploading SARIF results to GitHub Code Scanning...');
+  // Skip interactive prompts in CI
+  args.push('--yes');
 
-  // Read and validate SARIF file
-  const sarifContent = fs.readFileSync(sarifPath, 'utf8');
-  const sarif = JSON.parse(sarifContent);
+  // Disable CLI's built-in failOnCritical so the action controls failure
+  args.push('--no-failOnCritical');
 
-  if (!sarif.runs || sarif.runs.length === 0) {
-    core.info('SARIF file contains no runs, skipping upload');
-    return;
+  // AI analysis is controlled by CDK_INSIGHTS_LICENSE_KEY env var (no --ai flag in CLI)
+  // Use --local to force static-only analysis when user has a license but wants to skip AI
+  if (!inputs.aiAnalysis && inputs.licenseKey) {
+    args.push('--local');
   }
 
-  // Use github/codeql-action/upload-sarif for SARIF upload
-  // This requires the user to have code-scanning write permissions
-  try {
-    await exec.exec('npx', [
-      '@github/codeql-action/upload-sarif@v3',
-      '--sarif-file',
-      sarifPath,
-    ]);
-    core.info('SARIF results uploaded successfully');
-  } catch (error) {
-    // SARIF upload might fail due to permissions - warn but don't fail the action
-    core.warning(`Failed to upload SARIF results: ${error instanceof Error ? error.message : String(error)}`);
-    core.warning('Ensure the workflow has "security-events: write" permission');
+  // PR comment (uses gh CLI, which auto-authenticates via GITHUB_TOKEN in GitHub Actions)
+  if (inputs.prComment) {
+    args.push('--prComment');
   }
+
+  // Services filter (yargs array type — pass as individual args)
+  if (inputs.services.length > 0) {
+    args.push('--services', ...inputs.services);
+  }
+
+  // Rule filter (yargs array type — pass as individual args)
+  if (inputs.ruleFilter.length > 0) {
+    args.push('--ruleFilter', ...inputs.ruleFilter);
+  }
+
+  // Output as JSON (CLI auto-generates {stackName}_analysis_report.json)
+  args.push('--format', 'json');
+
+  return args;
+}
+
+/**
+ * Build CLI arguments for the SARIF generation run.
+ */
+export function buildSarifArgs(inputs: ActionInputs): string[] {
+  const args: string[] = ['scan'];
+
+  if (inputs.stackName) {
+    args.push(inputs.stackName);
+  } else {
+    args.push('--all');
+  }
+
+  args.push('--yes');
+  args.push('--no-failOnCritical');
+  args.push('--format', 'sarif');
+
+  return args;
 }
 
 async function run(): Promise<void> {
@@ -104,56 +192,17 @@ async function run(): Promise<void> {
     await installCdkInsights(inputs.cdkInsightsVersion);
     core.endGroup();
 
-    // Build CLI arguments
-    const args: string[] = ['scan'];
-
-    // Stack name
-    if (inputs.stackName) {
-      args.push(inputs.stackName);
-    }
-
-    // AI analysis
-    if (inputs.aiAnalysis && inputs.licenseKey) {
-      args.push('--ai');
-    } else if (inputs.aiAnalysis && !inputs.licenseKey) {
+    // Warn if AI requested without license
+    if (inputs.aiAnalysis && !inputs.licenseKey) {
       core.warning('AI analysis requested but no license key provided - using static analysis only');
     }
 
-    // PR comment
-    if (inputs.prComment) {
-      args.push('--prComment');
-    }
-
-    // Fail on critical
-    if (inputs.failOn.includes('critical')) {
-      args.push('--failOnCritical');
-    }
-
-    // Services filter
-    if (inputs.services.length > 0) {
-      args.push('--services', inputs.services.join(','));
-    }
-
-    // Rule filter
-    if (inputs.ruleFilter.length > 0) {
-      args.push('--ruleFilter', inputs.ruleFilter.join(','));
-    }
-
-    // Always generate JSON for parsing results
-    const jsonPath = path.join(inputs.workingDirectory, JSON_FILE);
-    args.push('--output', 'json');
-    args.push('--outputFile', jsonPath);
-
-    // Additional output format
-    if (inputs.outputFormat && inputs.outputFile) {
-      args.push('--format', inputs.outputFormat);
-      args.push('--output', inputs.outputFile);
-    }
+    const args = buildScanArgs(inputs);
 
     core.startGroup('Running CDK Insights Analysis');
     core.info(`Command: cdk-insights ${args.join(' ')}`);
 
-    const { stdout, stderr } = await runAnalysis(
+    const { exitCode, stdout, stderr } = await runAnalysis(
       args,
       inputs.workingDirectory,
       inputs.licenseKey
@@ -167,28 +216,46 @@ async function run(): Promise<void> {
     }
     core.endGroup();
 
-    // Parse results and set outputs
-    core.startGroup('Processing Results');
-    const results = parseResults(jsonPath);
-    setOutputs(results, jsonPath, inputs.sarifUpload ? path.join(inputs.workingDirectory, SARIF_FILE) : undefined);
-    core.endGroup();
+    // Find auto-generated JSON report files
+    const jsonFiles = findReportFiles(inputs.workingDirectory, 'json');
 
-    // Generate and upload SARIF if requested
-    if (inputs.sarifUpload) {
-      core.startGroup('SARIF Upload');
-
-      // Run analysis again with SARIF output
-      const sarifPath = path.join(inputs.workingDirectory, SARIF_FILE);
-      const sarifArgs = ['scan'];
-      if (inputs.stackName) sarifArgs.push(inputs.stackName);
-      sarifArgs.push('--output', 'sarif');
-      sarifArgs.push('--outputFile', sarifPath);
-
-      await runAnalysis(sarifArgs, inputs.workingDirectory, inputs.licenseKey);
-      await uploadSarif(sarifPath);
-
-      core.endGroup();
+    // Distinguish CLI crash from normal analysis results
+    if (exitCode !== 0 && jsonFiles.length === 0) {
+      const errorMsg = stderr.trim() || stdout.trim() || `cdk-insights exited with code ${exitCode}`;
+      throw new Error(`CDK Insights CLI failed: ${errorMsg}`);
     }
+
+    if (jsonFiles.length === 0) {
+      core.warning('No analysis report files found');
+    } else {
+      core.info(`Found ${jsonFiles.length} report file(s): ${jsonFiles.join(', ')}`);
+    }
+
+    // Parse and aggregate results from all report files
+    core.startGroup('Processing Results');
+    const results = aggregateResults(jsonFiles);
+
+    // Generate SARIF file if requested (users should upload via github/codeql-action/upload-sarif@v3)
+    let sarifFiles: string[] = [];
+    if (inputs.sarifUpload) {
+      core.info('Generating SARIF output...');
+
+      const sarifArgs = buildSarifArgs(inputs);
+      const sarifResult = await runAnalysis(sarifArgs, inputs.workingDirectory, inputs.licenseKey);
+
+      sarifFiles = findReportFiles(inputs.workingDirectory, 'sarif');
+      if (sarifResult.exitCode !== 0 && sarifFiles.length === 0) {
+        core.warning(`SARIF generation failed: ${sarifResult.stderr.trim() || `exit code ${sarifResult.exitCode}`}`);
+      } else if (sarifFiles.length > 0) {
+        core.info(`SARIF file(s) generated: ${sarifFiles.join(', ')}`);
+        core.info('To upload to GitHub Code Scanning, add a step using github/codeql-action/upload-sarif@v3');
+      } else {
+        core.warning('SARIF generation requested but no SARIF files were produced');
+      }
+    }
+
+    setOutputs(results, jsonFiles, inputs.failOn, sarifFiles);
+    core.endGroup();
 
     // Check fail conditions
     if (inputs.failOn.length > 0) {

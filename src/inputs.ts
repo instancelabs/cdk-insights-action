@@ -8,8 +8,6 @@ export interface ActionInputs {
   failOn: string[];
   prComment: boolean;
   sarifUpload: boolean;
-  outputFormat: string;
-  outputFile: string;
   services: string[];
   ruleFilter: string[];
   cdkInsightsVersion: string;
@@ -20,13 +18,14 @@ export interface ActionInputs {
  */
 export function parseInputs(): ActionInputs {
   const licenseKey = core.getInput('license-key');
+  if (licenseKey) {
+    core.setSecret(licenseKey);
+  }
   const workingDirectory = core.getInput('working-directory') || '.';
   const stackName = core.getInput('stack-name');
   const aiAnalysis = core.getBooleanInput('ai-analysis');
   const prComment = core.getBooleanInput('pr-comment');
   const sarifUpload = core.getBooleanInput('sarif-upload');
-  const outputFormat = core.getInput('output-format');
-  const outputFile = core.getInput('output-file');
   const cdkInsightsVersion = core.getInput('cdk-insights-version') || 'latest';
 
   // Parse comma-separated lists
@@ -78,8 +77,6 @@ export function parseInputs(): ActionInputs {
     failOn,
     prComment,
     sarifUpload,
-    outputFormat,
-    outputFile,
     services,
     ruleFilter,
     cdkInsightsVersion,

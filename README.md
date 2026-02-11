@@ -23,7 +23,6 @@ jobs:
     permissions:
       contents: read
       pull-requests: write  # Required for PR comments
-      security-events: write  # Required for SARIF upload
 
     steps:
       - uses: actions/checkout@v4
@@ -37,7 +36,7 @@ jobs:
         run: npm ci
 
       - name: CDK Insights Analysis
-        uses: cdkinsights/cdk-insights-action@v1
+        uses: TheLeePriest/cdk-insights-action@v1
         with:
           license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
           ai-analysis: true
@@ -49,11 +48,11 @@ jobs:
 |-------|-------------|----------|---------|
 | `license-key` | CDK Insights license key (required for AI analysis) | No | - |
 | `working-directory` | Directory containing CDK project | No | `.` |
-| `stack-name` | Specific stack to analyze | No | (all stacks) |
-| `ai-analysis` | Enable AI-powered recommendations | No | `false` |
+| `stack-name` | Specific stack to analyze (analyzes all by default) | No | (all stacks) |
+| `ai-analysis` | Enable AI-powered recommendations (requires `license-key`). Set to `false` with a license key to force static-only analysis. | No | `false` |
 | `fail-on` | Fail workflow on severity levels (comma-separated: `critical,high,medium,low`) | No | - |
 | `pr-comment` | Post analysis summary as PR comment | No | `true` |
-| `sarif-upload` | Upload SARIF results to GitHub Code Scanning | No | `false` |
+| `sarif-upload` | Generate SARIF results file for GitHub Code Scanning | No | `false` |
 | `services` | Filter analysis to specific AWS services (comma-separated) | No | (all services) |
 | `rule-filter` | Filter to specific rules (comma-separated rule IDs) | No | - |
 | `cdk-insights-version` | Specific version of cdk-insights to use | No | `latest` |
@@ -67,9 +66,9 @@ jobs:
 | `high-count` | Number of high severity issues |
 | `medium-count` | Number of medium severity issues |
 | `low-count` | Number of low severity issues |
-| `sarif-file` | Path to SARIF file (if generated) |
-| `json-file` | Path to JSON results file |
-| `exit-code` | Exit code (0 = success, 1 = issues found) |
+| `sarif-file` | Path to SARIF file(s) (if generated) |
+| `json-file` | Path to JSON results file(s) |
+| `exit-code` | Exit code (0 = no issues at `fail-on` severity, 1 = issues found) |
 
 ## Examples
 
@@ -90,6 +89,17 @@ Enable AI recommendations with a Pro or Team license:
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: true
+```
+
+### Static-Only with License Key
+
+Force static analysis even with a license key (skips AI):
+
+```yaml
+- uses: TheLeePriest/cdk-insights-action@v1
+  with:
+    license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
+    ai-analysis: false
 ```
 
 ### Fail on Critical/High Issues
@@ -116,12 +126,19 @@ Analyze only a specific CDK stack:
 
 ### GitHub Code Scanning Integration
 
-Upload results to GitHub's Security tab:
+Generate SARIF results and upload to GitHub's Security tab:
 
 ```yaml
 - uses: TheLeePriest/cdk-insights-action@v1
+  id: cdk-insights
   with:
     sarif-upload: true
+
+- name: Upload SARIF to GitHub Code Scanning
+  if: steps.cdk-insights.outputs.sarif-file != ''
+  uses: github/codeql-action/upload-sarif@v3
+  with:
+    sarif_file: ${{ steps.cdk-insights.outputs.sarif-file }}
 ```
 
 ### Monorepo with Multiple CDK Projects
@@ -177,7 +194,7 @@ The action requires different permissions depending on features used:
 permissions:
   contents: read        # Always required
   pull-requests: write  # Required for PR comments
-  security-events: write  # Required for SARIF upload
+  security-events: write  # Required for SARIF upload to Code Scanning
 ```
 
 ## PR Comment Example

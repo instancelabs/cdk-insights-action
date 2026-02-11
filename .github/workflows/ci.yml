@@ -25,13 +25,17 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Check dist
+      - name: Test
+        run: npm test
+
+      - name: Check dist is up to date
         run: |
-          if [ ! -f dist/index.js ]; then
-            echo "dist/index.js not found"
+          if [ "$(git diff --name-only dist/)" != "" ]; then
+            echo "::error::dist/ is out of date. Run 'npm run build' and commit the result."
+            git diff --stat dist/
             exit 1
           fi
-          echo "Build output verified"
+          echo "dist/ is up to date"
 
   test-action:
     runs-on: ubuntu-latest
@@ -95,14 +99,38 @@ jobs:
           # Synthesize
           npx cdk synth --quiet || true
 
-      - name: Test action (dry run)
+      - name: Test action
+        id: cdk-insights
         uses: ./
         with:
           working-directory: test-cdk-project
+          stack-name: TestStack
           pr-comment: 'false'
           sarif-upload: 'false'
-        continue-on-error: true  # Allow to fail since we're testing
 
       - name: Verify outputs
         run: |
-          echo "Action completed"
+          total="${{ steps.cdk-insights.outputs.total-issues }}"
+          json_file="${{ steps.cdk-insights.outputs.json-file }}"
+          exit_code="${{ steps.cdk-insights.outputs.exit-code }}"
+
+          echo "Total issues: $total"
+          echo "JSON file: $json_file"
+          echo "Exit code: $exit_code"
+
+          if [ -z "$total" ]; then
+            echo "::error::total-issues output is empty"
+            exit 1
+          fi
+
+          if [ -z "$json_file" ]; then
+            echo "::error::json-file output is empty"
+            exit 1
+          fi
+
+          if [ -z "$exit_code" ]; then
+            echo "::error::exit-code output is empty"
+            exit 1
+          fi
+
+          echo "All outputs verified"
