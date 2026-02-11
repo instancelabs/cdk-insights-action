@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-02-11
+
+### Security
+
+- Restricted subprocess environment to an allowlist of 15 variables instead of forwarding the entire `process.env`
+- Added input validation for `stack-name`, `services`, `rule-filter`, and `cdk-insights-version` to prevent argument injection
+- Added path traversal protection for `working-directory` (must resolve within `GITHUB_WORKSPACE`)
+- Added `--` separator before positional stack name arguments to prevent flag injection
+- Fixed CI workflow expression injection — step outputs now use `env:` block instead of inline `${{ }}`
+- Fixed release workflow script injection — version variable is quoted and validated against semver pattern
+- Added `permissions: contents: read` to CI workflow for least-privilege
+- Pinned npm registry (`--registry https://registry.npmjs.org`) for `npm view` and `npm install`
+- Removed unused `@actions/github` dependency (eliminates vulnerable `undici` transitive dependency)
+
+### Added
+
+- 11 new input validation tests (52 total tests)
+- Empty string filtering for comma-separated `services` and `rule-filter` inputs
+
 ## [1.1.0] - 2026-02-11
 
 ### Added

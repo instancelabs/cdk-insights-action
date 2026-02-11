@@ -18,7 +18,7 @@ async function resolveVersion(version: string): Promise<string> {
   if (version !== 'latest') return version;
 
   let stdout = '';
-  await exec.exec('npm', ['view', 'cdk-insights', 'version'], {
+  await exec.exec('npm', ['view', 'cdk-insights', 'version', '--registry', 'https://registry.npmjs.org'], {
     silent: true,
     listeners: {
       stdout: (data: Buffer) => {
@@ -51,7 +51,12 @@ async function installCdkInsights(requestedVersion: string): Promise<void> {
   const installDir = path.join(process.env.RUNNER_TEMP || '/tmp', `cdk-insights-${version}`);
   fs.mkdirSync(installDir, { recursive: true });
 
-  await exec.exec('npm', ['install', '--prefix', installDir, `cdk-insights@${version}`], {
+  await exec.exec('npm', [
+    'install',
+    '--prefix', installDir,
+    '--registry', 'https://registry.npmjs.org',
+    `cdk-insights@${version}`,
+  ], {
     silent: false,
   });
 
@@ -69,6 +74,29 @@ async function installCdkInsights(requestedVersion: string): Promise<void> {
   core.info(`cdk-insights ${version} installed and cached`);
 }
 
+/**
+ * Allowlist of environment variables passed to the CLI subprocess.
+ * Only variables needed for correct operation are forwarded.
+ */
+const ENV_ALLOWLIST = [
+  'PATH',
+  'HOME',
+  'RUNNER_TEMP',
+  'NODE_PATH',
+  // GitHub Actions context needed by gh CLI (PR comments) and CI detection
+  'GITHUB_TOKEN',
+  'GITHUB_REPOSITORY',
+  'GITHUB_REF',
+  'GITHUB_SHA',
+  'GITHUB_WORKSPACE',
+  'GITHUB_EVENT_PATH',
+  'GITHUB_EVENT_NAME',
+  'GITHUB_HEAD_REF',
+  'GITHUB_BASE_REF',
+  'GITHUB_API_URL',
+  'GITHUB_STEP_SUMMARY',
+];
+
 async function runAnalysis(
   args: string[],
   workingDirectory: string,
@@ -79,8 +107,9 @@ async function runAnalysis(
 
   const env: Record<string, string> = { CI: 'true' };
 
-  // Copy defined env vars (process.env values can be undefined)
-  for (const [key, value] of Object.entries(process.env)) {
+  // Only forward allowlisted env vars to the subprocess
+  for (const key of ENV_ALLOWLIST) {
+    const value = process.env[key];
     if (value !== undefined) {
       env[key] = value;
     }

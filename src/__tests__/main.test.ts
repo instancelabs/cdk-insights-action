@@ -30,10 +30,13 @@ describe('buildScanArgs', () => {
     expect(args.slice(-2)).toEqual(['--format', 'json']);
   });
 
-  it('uses stack name instead of --all when provided', () => {
+  it('uses -- separator and stack name instead of --all when provided', () => {
     const args = buildScanArgs(defaultInputs({ stackName: 'MyStack' }));
 
     expect(args).toContain('MyStack');
+    expect(args).toContain('--');
+    const ddIdx = args.indexOf('--');
+    expect(args[ddIdx + 1]).toBe('MyStack');
     expect(args).not.toContain('--all');
   });
 
@@ -132,10 +135,13 @@ describe('buildSarifArgs', () => {
     expect(args.slice(-2)).toEqual(['--format', 'sarif']);
   });
 
-  it('uses stack name when provided', () => {
+  it('uses -- separator and stack name when provided', () => {
     const args = buildSarifArgs(defaultInputs({ stackName: 'ProdStack' }));
 
     expect(args).toContain('ProdStack');
+    expect(args).toContain('--');
+    const ddIdx = args.indexOf('--');
+    expect(args[ddIdx + 1]).toBe('ProdStack');
     expect(args).not.toContain('--all');
   });
 

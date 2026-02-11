@@ -9,7 +9,8 @@ export function buildScanArgs(inputs: ActionInputs): string[] {
 
   // Stack name or analyze all
   if (inputs.stackName) {
-    args.push(inputs.stackName);
+    // Use -- to prevent stack name from being interpreted as a flag
+    args.push('--', inputs.stackName);
   } else {
     args.push('--all');
   }
@@ -54,7 +55,7 @@ export function buildSarifArgs(inputs: ActionInputs): string[] {
   const args: string[] = ['scan'];
 
   if (inputs.stackName) {
-    args.push(inputs.stackName);
+    args.push('--', inputs.stackName);
   } else {
     args.push('--all');
   }

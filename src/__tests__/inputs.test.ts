@@ -121,4 +121,77 @@ describe('parseInputs', () => {
 
     expect(result.cdkInsightsVersion).toBe('latest');
   });
+
+  // --- Input validation tests ---
+
+  it('rejects stack name with flag-like value', () => {
+    mockInputs({ 'stack-name': '--malicious' });
+
+    expect(() => parseInputs()).toThrow('must not start with a hyphen');
+  });
+
+  it('rejects stack name with spaces', () => {
+    mockInputs({ 'stack-name': 'My Stack' });
+
+    expect(() => parseInputs()).toThrow('Invalid stack-name');
+  });
+
+  it('accepts valid stack names', () => {
+    mockInputs({ 'stack-name': 'My-Stack_123' });
+
+    const result = parseInputs();
+    expect(result.stackName).toBe('My-Stack_123');
+  });
+
+  it('rejects service with flag-like value', () => {
+    mockInputs({ 'services': 'S3,--inject' });
+
+    expect(() => parseInputs()).toThrow('must not start with a hyphen');
+  });
+
+  it('rejects rule-filter with shell metacharacters', () => {
+    mockInputs({ 'rule-filter': 'RULE-001,$(whoami)' });
+
+    expect(() => parseInputs()).toThrow('Invalid rule-filter');
+  });
+
+  it('accepts valid rule-filter values', () => {
+    mockInputs({ 'rule-filter': 'RULE-001,SEC.002' });
+
+    const result = parseInputs();
+    expect(result.ruleFilter).toEqual(['RULE-001', 'SEC.002']);
+  });
+
+  it('rejects invalid version string', () => {
+    mockInputs({ 'cdk-insights-version': '1.0.0; rm -rf /' });
+
+    expect(() => parseInputs()).toThrow('Invalid cdk-insights-version');
+  });
+
+  it('accepts semver version string', () => {
+    mockInputs({ 'cdk-insights-version': '2.1.0' });
+
+    const result = parseInputs();
+    expect(result.cdkInsightsVersion).toBe('2.1.0');
+  });
+
+  it('accepts semver with prerelease tag', () => {
+    mockInputs({ 'cdk-insights-version': '2.1.0-beta.1' });
+
+    const result = parseInputs();
+    expect(result.cdkInsightsVersion).toBe('2.1.0-beta.1');
+  });
+
+  it('rejects working directory with path traversal', () => {
+    mockInputs({ 'working-directory': '../../etc' });
+
+    expect(() => parseInputs()).toThrow('resolves outside the workspace');
+  });
+
+  it('filters empty strings from services list', () => {
+    mockInputs({ 'services': 'S3,,Lambda,' });
+
+    const result = parseInputs();
+    expect(result.services).toEqual(['S3', 'Lambda']);
+  });
 });

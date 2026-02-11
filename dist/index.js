@@ -28212,7 +28212,8 @@ function buildScanArgs(inputs) {
     const args = ['scan'];
     // Stack name or analyze all
     if (inputs.stackName) {
-        args.push(inputs.stackName);
+        // Use -- to prevent stack name from being interpreted as a flag
+        args.push('--', inputs.stackName);
     }
     else {
         args.push('--all');
@@ -28248,7 +28249,7 @@ function buildScanArgs(inputs) {
 function buildSarifArgs(inputs) {
     const args = ['scan'];
     if (inputs.stackName) {
-        args.push(inputs.stackName);
+        args.push('--', inputs.stackName);
     }
     else {
         args.push('--all');
@@ -28303,6 +28304,39 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.parseInputs = parseInputs;
 const core = __importStar(__nccwpck_require__(7484));
+const path = __importStar(__nccwpck_require__(6928));
+/** Safe pattern for stack names (alphanumeric, hyphens, underscores) */
+const SAFE_NAME_PATTERN = /^[a-zA-Z0-9_-]+$/;
+/** Safe pattern for service names (alphanumeric only, e.g. S3, Lambda, DynamoDB) */
+const SAFE_SERVICE_PATTERN = /^[a-zA-Z0-9]+$/;
+/** Safe pattern for rule IDs (alphanumeric, hyphens, underscores, dots) */
+const SAFE_RULE_PATTERN = /^[a-zA-Z0-9_.-]+$/;
+/** Semver pattern or 'latest' */
+const SAFE_VERSION_PATTERN = /^(latest|\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/;
+/**
+ * Validate a value against a pattern, throwing if invalid.
+ * Also rejects values starting with '-' to prevent argument injection.
+ */
+function validateInput(value, pattern, label) {
+    if (!value)
+        return;
+    if (value.startsWith('-')) {
+        throw new Error(`Invalid ${label}: "${value}" must not start with a hyphen`);
+    }
+    if (!pattern.test(value)) {
+        throw new Error(`Invalid ${label}: "${value}" contains disallowed characters`);
+    }
+}
+/**
+ * Validate that workingDirectory doesn't escape the workspace via traversal
+ */
+function validateWorkingDirectory(dir) {
+    const workspace = process.env.GITHUB_WORKSPACE || process.cwd();
+    const resolved = path.resolve(workspace, dir);
+    if (!resolved.startsWith(workspace)) {
+        throw new Error(`Invalid working-directory: "${dir}" resolves outside the workspace`);
+    }
+}
 /**
  * Parse and validate action inputs
  */
@@ -28324,12 +28358,27 @@ function parseInputs() {
         : [];
     const servicesInput = core.getInput('services');
     const services = servicesInput
-        ? servicesInput.split(',').map(s => s.trim())
+        ? servicesInput.split(',').map(s => s.trim()).filter(s => s.length > 0)
         : [];
     const ruleFilterInput = core.getInput('rule-filter');
     const ruleFilter = ruleFilterInput
-        ? ruleFilterInput.split(',').map(s => s.trim())
+        ? ruleFilterInput.split(',').map(s => s.trim()).filter(s => s.length > 0)
         : [];
+    // --- Input validation ---
+    // Validate stack name (prevents argument injection via --flag-like names)
+    validateInput(stackName, SAFE_NAME_PATTERN, 'stack-name');
+    // Validate services (prevents argument injection)
+    for (const service of services) {
+        validateInput(service, SAFE_SERVICE_PATTERN, 'services');
+    }
+    // Validate rule filter (prevents argument injection)
+    for (const rule of ruleFilter) {
+        validateInput(rule, SAFE_RULE_PATTERN, 'rule-filter');
+    }
+    // Validate version (prevents command injection via crafted version strings)
+    validateInput(cdkInsightsVersion, SAFE_VERSION_PATTERN, 'cdk-insights-version');
+    // Validate working directory (prevents path traversal)
+    validateWorkingDirectory(workingDirectory);
     // Validate fail-on values
     const validSeverities = ['critical', 'high', 'medium', 'low'];
     for (const severity of failOn) {
@@ -28427,7 +28476,7 @@ async function resolveVersion(version) {
     if (version !== 'latest')
         return version;
     let stdout = '';
-    await exec.exec('npm', ['view', 'cdk-insights', 'version'], {
+    await exec.exec('npm', ['view', 'cdk-insights', 'version', '--registry', 'https://registry.npmjs.org'], {
         silent: true,
         listeners: {
             stdout: (data) => {
@@ -28455,7 +28504,12 @@ async function installCdkInsights(requestedVersion) {
     core.info(`Installing cdk-insights@${version}...`);
     const installDir = path.join(process.env.RUNNER_TEMP || '/tmp', `cdk-insights-${version}`);
     fs.mkdirSync(installDir, { recursive: true });
-    await exec.exec('npm', ['install', '--prefix', installDir, `cdk-insights@${version}`], {
+    await exec.exec('npm', [
+        'install',
+        '--prefix', installDir,
+        '--registry', 'https://registry.npmjs.org',
+        `cdk-insights@${version}`,
+    ], {
         silent: false,
     });
     // The binary is at installDir/node_modules/.bin/cdk-insights
@@ -28469,12 +28523,35 @@ async function installCdkInsights(requestedVersion) {
     core.addPath(path.join(cached, 'node_modules', '.bin'));
     core.info(`cdk-insights ${version} installed and cached`);
 }
+/**
+ * Allowlist of environment variables passed to the CLI subprocess.
+ * Only variables needed for correct operation are forwarded.
+ */
+const ENV_ALLOWLIST = [
+    'PATH',
+    'HOME',
+    'RUNNER_TEMP',
+    'NODE_PATH',
+    // GitHub Actions context needed by gh CLI (PR comments) and CI detection
+    'GITHUB_TOKEN',
+    'GITHUB_REPOSITORY',
+    'GITHUB_REF',
+    'GITHUB_SHA',
+    'GITHUB_WORKSPACE',
+    'GITHUB_EVENT_PATH',
+    'GITHUB_EVENT_NAME',
+    'GITHUB_HEAD_REF',
+    'GITHUB_BASE_REF',
+    'GITHUB_API_URL',
+    'GITHUB_STEP_SUMMARY',
+];
 async function runAnalysis(args, workingDirectory, licenseKey) {
     let stdout = '';
     let stderr = '';
     const env = { CI: 'true' };
-    // Copy defined env vars (process.env values can be undefined)
-    for (const [key, value] of Object.entries(process.env)) {
+    // Only forward allowlisted env vars to the subprocess
+    for (const key of ENV_ALLOWLIST) {
+        const value = process.env[key];
         if (value !== undefined) {
             env[key] = value;
         }

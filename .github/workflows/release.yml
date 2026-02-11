@@ -53,13 +53,20 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update major version tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          VERSION=${{ steps.version.outputs.version }}
-          MAJOR=$(echo $VERSION | cut -d. -f1)
+          # Validate version looks like a semver tag (e.g. v1.2.3)
+          if ! echo "$VERSION" | grep -qE '^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.]+)?$'; then
+            echo "::error::Invalid version tag: $VERSION"
+            exit 1
+          fi
+
+          MAJOR=$(echo "$VERSION" | cut -d. -f1)
 
           git config user.name github-actions
           git config user.email github-actions@github.com
 
           # Update or create the major version tag (e.g., v1)
-          git tag -fa $MAJOR -m "Update $MAJOR tag to $VERSION"
-          git push origin $MAJOR --force
+          git tag -fa "$MAJOR" -m "Update $MAJOR tag to $VERSION"
+          git push origin "$MAJOR" --force
