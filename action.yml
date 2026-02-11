@@ -1,5 +1,5 @@
 name: 'CDK Insights'
-description: 'Analyze AWS CDK infrastructure for security, cost, and best practices'
+description: 'Static and AI-powered analysis for AWS CDK — security scanning, cost optimization, and best practices for CloudFormation and infrastructure as code'
 author: 'CDK Insights'
 branding:
   icon: 'shield'
