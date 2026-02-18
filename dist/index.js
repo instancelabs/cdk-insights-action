@@ -28222,6 +28222,10 @@ function buildScanArgs(inputs) {
     args.push('--yes');
     // Disable CLI's built-in failOnCritical so the action controls failure
     args.push('--no-failOnCritical');
+    // Allow analysis to continue when sensitive data is detected (the action
+    // controls failure via the fail-on input). Without this flag the CLI exits
+    // before posting PR comments or generating reports.
+    args.push('--warn-sensitive');
     // AI analysis is controlled by CDK_INSIGHTS_LICENSE_KEY env var (no --ai flag in CLI)
     // Use --local to force static-only analysis when user has a license but wants to skip AI
     if (!inputs.aiAnalysis && inputs.licenseKey) {
@@ -28256,6 +28260,7 @@ function buildSarifArgs(inputs) {
     }
     args.push('--yes');
     args.push('--no-failOnCritical');
+    args.push('--warn-sensitive');
     args.push('--format', 'sarif');
     return args;
 }

@@ -26,6 +26,7 @@ describe('buildScanArgs', () => {
     expect(args).toContain('--all');
     expect(args).toContain('--yes');
     expect(args).toContain('--no-failOnCritical');
+    expect(args).toContain('--warn-sensitive');
     expect(args).toContain('--prComment');
     expect(args.slice(-2)).toEqual(['--format', 'json']);
   });
@@ -132,6 +133,7 @@ describe('buildSarifArgs', () => {
     expect(args).toContain('--all');
     expect(args).toContain('--yes');
     expect(args).toContain('--no-failOnCritical');
+    expect(args).toContain('--warn-sensitive');
     expect(args.slice(-2)).toEqual(['--format', 'sarif']);
   });
 
