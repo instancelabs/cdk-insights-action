@@ -28538,6 +28538,7 @@ const ENV_ALLOWLIST = [
     'RUNNER_TEMP',
     'NODE_PATH',
     // GitHub Actions context needed by gh CLI (PR comments) and CI detection
+    'GITHUB_ACTIONS',
     'GITHUB_TOKEN',
     'GITHUB_REPOSITORY',
     'GITHUB_REF',
