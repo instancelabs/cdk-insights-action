@@ -212,7 +212,7 @@ describe('setOutputs', () => {
   };
 
   it('sets all outputs correctly', () => {
-    setOutputs(baseResults, ['/results.json'], [], []);
+    setOutputs(baseResults, ['/results.json'], [], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('total-issues', '10');
     expect(mockedCore.setOutput).toHaveBeenCalledWith('critical-count', '1');
@@ -223,19 +223,19 @@ describe('setOutputs', () => {
   });
 
   it('joins multiple json file paths', () => {
-    setOutputs(baseResults, ['/stack1.json', '/stack2.json'], [], []);
+    setOutputs(baseResults, ['/stack1.json', '/stack2.json'], [], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('json-file', '/stack1.json,/stack2.json');
   });
 
   it('sets sarif-file output when paths provided', () => {
-    setOutputs(baseResults, ['/results.json'], [], ['/results.sarif']);
+    setOutputs(baseResults, ['/results.json'], [], ['/results.sarif'], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('sarif-file', '/results.sarif');
   });
 
   it('does not set sarif-file when no paths', () => {
-    setOutputs(baseResults, ['/results.json'], [], []);
+    setOutputs(baseResults, ['/results.json'], [], [], null);
 
     const sarifCall = (mockedCore.setOutput as ReturnType<typeof vi.fn>).mock.calls.find(
       (c: unknown[]) => c[0] === 'sarif-file'
@@ -244,7 +244,7 @@ describe('setOutputs', () => {
   });
 
   it('sets exit-code 1 when issues exist and no fail-on', () => {
-    setOutputs(baseResults, ['/results.json'], [], []);
+    setOutputs(baseResults, ['/results.json'], [], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('exit-code', '1');
   });
@@ -254,7 +254,7 @@ describe('setOutputs', () => {
       totalIssues: 0, criticalCount: 0, highCount: 0,
       mediumCount: 0, lowCount: 0, resourceCount: 5,
     };
-    setOutputs(noIssues, ['/results.json'], [], []);
+    setOutputs(noIssues, ['/results.json'], [], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('exit-code', '0');
   });
@@ -264,7 +264,7 @@ describe('setOutputs', () => {
       totalIssues: 3, criticalCount: 0, highCount: 0,
       mediumCount: 0, lowCount: 3, resourceCount: 2,
     };
-    setOutputs(lowOnly, ['/results.json'], ['critical', 'high'], []);
+    setOutputs(lowOnly, ['/results.json'], ['critical', 'high'], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('exit-code', '0');
   });
@@ -274,8 +274,23 @@ describe('setOutputs', () => {
       totalIssues: 5, criticalCount: 2, highCount: 0,
       mediumCount: 0, lowCount: 3, resourceCount: 3,
     };
-    setOutputs(withCritical, ['/results.json'], ['critical'], []);
+    setOutputs(withCritical, ['/results.json'], ['critical'], [], null);
 
     expect(mockedCore.setOutput).toHaveBeenCalledWith('exit-code', '1');
+  });
+
+  it('sets artifact-id output when provided', () => {
+    setOutputs(baseResults, ['/results.json'], [], [], 42);
+
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('artifact-id', '42');
+  });
+
+  it('does not set artifact-id when null', () => {
+    setOutputs(baseResults, ['/results.json'], [], [], null);
+
+    const artifactCall = (mockedCore.setOutput as ReturnType<typeof vi.fn>).mock.calls.find(
+      (c: unknown[]) => c[0] === 'artifact-id'
+    );
+    expect(artifactCall).toBeUndefined();
   });
 });

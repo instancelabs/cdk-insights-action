@@ -6,6 +6,8 @@ import * as path from 'path';
 import { parseInputs } from './inputs';
 import { aggregateResults, setOutputs } from './outputs';
 import { buildScanArgs, buildSarifArgs } from './args';
+import { uploadSarifToCodeScanning } from './sarif-upload';
+import { uploadReportArtifacts } from './artifact-upload';
 
 const TOOL_NAME = 'cdk-insights';
 const REPORT_SUFFIX = '_analysis_report';
@@ -200,7 +202,7 @@ async function run(): Promise<void> {
     core.startGroup('Processing Results');
     const results = aggregateResults(jsonFiles);
 
-    // Generate SARIF file if requested (users should upload via github/codeql-action/upload-sarif@v3)
+    // Generate SARIF file if requested
     let sarifFiles: string[] = [];
     if (inputs.sarifUpload) {
       core.info('Generating SARIF output...');
@@ -213,13 +215,29 @@ async function run(): Promise<void> {
         core.warning(`SARIF generation failed: ${sarifResult.stderr.trim() || `exit code ${sarifResult.exitCode}`}`);
       } else if (sarifFiles.length > 0) {
         core.info(`SARIF file(s) generated: ${sarifFiles.join(', ')}`);
-        core.info('To upload to GitHub Code Scanning, add a step using github/codeql-action/upload-sarif@v3');
       } else {
         core.warning('SARIF generation requested but no SARIF files were produced');
       }
     }
 
-    setOutputs(results, jsonFiles, inputs.failOn, sarifFiles);
+    // Auto-upload SARIF to GitHub Code Scanning (Security tab)
+    if (sarifFiles.length > 0 && inputs.githubToken) {
+      core.startGroup('Uploading SARIF to Code Scanning');
+      await uploadSarifToCodeScanning(sarifFiles, inputs.githubToken);
+      core.endGroup();
+    }
+
+    // Upload all report files as a GitHub artifact
+    let artifactId: number | null = null;
+    if (inputs.uploadArtifact) {
+      core.startGroup('Uploading Report Artifacts');
+      const markdownFiles = findReportFiles(inputs.workingDirectory, 'md');
+      const allReportFiles = [...jsonFiles, ...sarifFiles, ...markdownFiles];
+      artifactId = await uploadReportArtifacts(allReportFiles, inputs.artifactName, inputs.workingDirectory);
+      core.endGroup();
+    }
+
+    setOutputs(results, jsonFiles, inputs.failOn, sarifFiles, artifactId);
     core.endGroup();
 
     // Check fail conditions

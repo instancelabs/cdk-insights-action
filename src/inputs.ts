@@ -9,6 +9,9 @@ export interface ActionInputs {
   failOn: string[];
   prComment: boolean;
   sarifUpload: boolean;
+  uploadArtifact: boolean;
+  artifactName: string;
+  githubToken: string;
   services: string[];
   ruleFilter: string[];
   cdkInsightsVersion: string;
@@ -64,6 +67,12 @@ export function parseInputs(): ActionInputs {
   const aiAnalysis = core.getBooleanInput('ai-analysis');
   const prComment = core.getBooleanInput('pr-comment');
   const sarifUpload = core.getBooleanInput('sarif-upload');
+  const uploadArtifact = core.getBooleanInput('upload-artifact');
+  const artifactName = core.getInput('artifact-name') || 'cdk-insights-report';
+  const githubToken = core.getInput('github-token');
+  if (githubToken) {
+    core.setSecret(githubToken);
+  }
   const cdkInsightsVersion = core.getInput('cdk-insights-version') || 'latest';
 
   // Parse comma-separated lists
@@ -119,6 +128,10 @@ export function parseInputs(): ActionInputs {
   core.info(`  License Key: ${licenseKey ? '(provided)' : '(not provided)'}`);
   core.info(`  PR Comment: ${prComment}`);
   core.info(`  SARIF Upload: ${sarifUpload}`);
+  core.info(`  Upload Artifact: ${uploadArtifact}`);
+  if (uploadArtifact) {
+    core.info(`  Artifact Name: ${artifactName}`);
+  }
   core.info(`  Fail On: ${failOn.length > 0 ? failOn.join(', ') : '(none)'}`);
   if (services.length > 0) {
     core.info(`  Services: ${services.join(', ')}`);
@@ -136,6 +149,9 @@ export function parseInputs(): ActionInputs {
     failOn,
     prComment,
     sarifUpload,
+    uploadArtifact,
+    artifactName,
+    githubToken,
     services,
     ruleFilter,
     cdkInsightsVersion,

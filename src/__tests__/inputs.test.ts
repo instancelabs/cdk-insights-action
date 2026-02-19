@@ -14,6 +14,9 @@ function mockInputs(overrides: Record<string, string> = {}): void {
     'ai-analysis': 'false',
     'pr-comment': 'true',
     'sarif-upload': 'false',
+    'upload-artifact': 'true',
+    'artifact-name': 'cdk-insights-report',
+    'github-token': '',
     'services': '',
     'rule-filter': '',
     'fail-on': '',
@@ -103,7 +106,40 @@ describe('parseInputs', () => {
 
     parseInputs();
 
+    // github-token is also empty, so no setSecret calls
     expect(mockedCore.setSecret).not.toHaveBeenCalled();
+  });
+
+  it('parses upload-artifact input', () => {
+    mockInputs({ 'upload-artifact': 'true' });
+
+    const result = parseInputs();
+
+    expect(result.uploadArtifact).toBe(true);
+  });
+
+  it('parses artifact-name input', () => {
+    mockInputs({ 'artifact-name': 'my-reports' });
+
+    const result = parseInputs();
+
+    expect(result.artifactName).toBe('my-reports');
+  });
+
+  it('defaults artifact-name to cdk-insights-report', () => {
+    mockInputs({ 'artifact-name': '' });
+
+    const result = parseInputs();
+
+    expect(result.artifactName).toBe('cdk-insights-report');
+  });
+
+  it('masks github-token as secret when provided', () => {
+    mockInputs({ 'github-token': 'ghp_test123' });
+
+    parseInputs();
+
+    expect(mockedCore.setSecret).toHaveBeenCalledWith('ghp_test123');
   });
 
   it('uses custom working directory', () => {

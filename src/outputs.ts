@@ -140,7 +140,8 @@ export function setOutputs(
   results: AnalysisResults,
   jsonPaths: string[],
   failOn: string[],
-  sarifPaths: string[]
+  sarifPaths: string[],
+  artifactId?: number | null
 ): void {
   core.setOutput('total-issues', results.totalIssues.toString());
   core.setOutput('critical-count', results.criticalCount.toString());
@@ -151,6 +152,10 @@ export function setOutputs(
 
   if (sarifPaths.length > 0) {
     core.setOutput('sarif-file', sarifPaths.join(','));
+  }
+
+  if (artifactId != null) {
+    core.setOutput('artifact-id', artifactId.toString());
   }
 
   // Determine exit code: if fail-on is configured, only count matching severities

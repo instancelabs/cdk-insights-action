@@ -1,6 +1,6 @@
 {
   "name": "cdk-insights-action",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "GitHub Action for CDK Insights - Analyze AWS CDK infrastructure for security, cost, and best practices",
   "main": "dist/index.js",
   "scripts": {
@@ -27,8 +27,10 @@
   "author": "CDK Insights",
   "license": "MIT",
   "dependencies": {
+    "@actions/artifact": "^2.2.2",
     "@actions/core": "^1.10.1",
     "@actions/exec": "^1.1.1",
+    "@actions/github": "^6.0.1",
     "@actions/tool-cache": "^2.0.2"
   },
   "devDependencies": {

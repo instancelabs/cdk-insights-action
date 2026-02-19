@@ -37,7 +37,7 @@ inputs:
     default: 'true'
 
   sarif-upload:
-    description: 'Generate SARIF results file (upload via github/codeql-action/upload-sarif@v3)'
+    description: 'Generate SARIF file and upload to GitHub Code Scanning (requires security-events: write permission)'
     required: false
     default: 'false'
 
@@ -50,6 +50,21 @@ inputs:
     description: 'Filter to specific rules (comma-separated rule IDs)'
     required: false
     default: ''
+
+  upload-artifact:
+    description: 'Upload report files (JSON, SARIF, markdown) as a GitHub artifact'
+    required: false
+    default: 'true'
+
+  artifact-name:
+    description: 'Name for the uploaded artifact'
+    required: false
+    default: 'cdk-insights-report'
+
+  github-token:
+    description: 'GitHub token for SARIF upload to Code Scanning (default: automatic)'
+    required: false
+    default: ${{ github.token }}
 
   cdk-insights-version:
     description: 'Specific version of cdk-insights to use (default: latest)'
@@ -77,6 +92,9 @@ outputs:
 
   json-file:
     description: 'Path to JSON results file'
+
+  artifact-id:
+    description: 'ID of the uploaded artifact (empty if upload-artifact is false)'
 
   exit-code:
     description: 'Exit code from analysis (0 = success, 1 = issues found at fail-on severity)'
