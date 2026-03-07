@@ -12,10 +12,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: '20'
           cache: 'npm'
@@ -31,18 +31,18 @@ jobs:
         run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
 
       - name: Create Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2
         with:
           name: ${{ steps.version.outputs.version }}
           body: |
             ## CDK Insights Action ${{ steps.version.outputs.version }}
 
-            See [CHANGELOG.md](https://github.com/TheLeePriest/cdk-insights-action/blob/main/CHANGELOG.md) for details.
+            See [CHANGELOG.md](https://github.com/instancelabs/cdk-insights-action/blob/main/CHANGELOG.md) for details.
 
             ### Usage
 
             ```yaml
-            - uses: TheLeePriest/cdk-insights-action@${{ steps.version.outputs.version }}
+            - uses: instancelabs/cdk-insights-action@${{ steps.version.outputs.version }}
               with:
                 license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
                 ai-analysis: true

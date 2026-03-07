@@ -37,7 +37,7 @@ jobs:
         run: npm ci
 
       - name: CDK Insights Analysis
-        uses: TheLeePriest/cdk-insights-action@v1
+        uses: instancelabs/cdk-insights-action@v1
         with:
           license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
           ai-analysis: true
@@ -82,7 +82,7 @@ jobs:
 Static analysis with PR comments - no license required:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
 ```
 
 ### AI-Powered Analysis
@@ -90,7 +90,7 @@ Static analysis with PR comments - no license required:
 Enable AI recommendations with a Pro or Team license:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: true
@@ -101,7 +101,7 @@ Enable AI recommendations with a Pro or Team license:
 Force static analysis even with a license key (skips AI):
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: false
@@ -112,7 +112,7 @@ Force static analysis even with a license key (skips AI):
 Block merges if critical or high severity issues are found:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: true
@@ -124,7 +124,7 @@ Block merges if critical or high severity issues are found:
 Analyze only a specific CDK stack:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     stack-name: ProductionStack
 ```
@@ -149,7 +149,7 @@ jobs:
           node-version: '20'
       - run: npm ci
 
-      - uses: TheLeePriest/cdk-insights-action@v1
+      - uses: instancelabs/cdk-insights-action@v1
         with:
           license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
           sarif-upload: true
@@ -165,7 +165,7 @@ By default (`upload-artifact: true`), all report files are uploaded as a downloa
 To customize the artifact name:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     artifact-name: security-report
 ```
@@ -173,7 +173,7 @@ To customize the artifact name:
 To disable artifact upload:
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     upload-artifact: false
 ```
@@ -214,7 +214,7 @@ jobs:
 
       - name: CDK Insights Analysis
         id: analysis
-        uses: TheLeePriest/cdk-insights-action@v1
+        uses: instancelabs/cdk-insights-action@v1
         with:
           license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
           ai-analysis: true
@@ -245,7 +245,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: TheLeePriest/cdk-insights-action@v1
+      - uses: instancelabs/cdk-insights-action@v1
         with:
           working-directory: packages/${{ matrix.project }}
           artifact-name: cdk-insights-${{ matrix.project }}
@@ -255,7 +255,7 @@ jobs:
 ### Using Outputs in Subsequent Steps
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   id: analysis
   with:
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
@@ -274,7 +274,7 @@ jobs:
 ### Filter by AWS Services
 
 ```yaml
-- uses: TheLeePriest/cdk-insights-action@v1
+- uses: instancelabs/cdk-insights-action@v1
   with:
     services: S3,Lambda,DynamoDB,IAM
 ```
@@ -340,7 +340,7 @@ When `pr-comment: true` (default), the action posts a summary like:
 ## Support
 
 - Documentation: [cdkinsights.dev/docs](https://cdkinsights.dev/docs)
-- Issues: [github.com/TheLeePriest/cdk-insights-action/issues](https://github.com/TheLeePriest/cdk-insights-action/issues)
+- Issues: [github.com/instancelabs/cdk-insights-action/issues](https://github.com/instancelabs/cdk-insights-action/issues)
 - Email: support@cdkinsights.dev
 
 ## License
