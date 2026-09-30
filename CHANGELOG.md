@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0] - 2026-09-30
+
+### Added
+
+- Explicit `fail-on: never` advisory scans retain findings and reports without failing on findings. CLI failures and separately enabled guardrails still fail.
+- Guidance for starting advisory, reviewing justified exceptions and enabling enforcement.
+
+### Fixed
+
+- Invalid severity values now fail configuration validation instead of silently disabling enforcement.
+- Ambiguous combinations of `never` with severity or class gates are rejected.
+
 ## [1.6.5] - 2026-08-12
 
 ### Changed
