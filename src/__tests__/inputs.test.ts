@@ -92,13 +92,29 @@ describe('parseInputs', () => {
     expect(result.failOn).toEqual(['critical', 'high']);
   });
 
-  it('warns on invalid severity values', () => {
+  it('rejects invalid severity values instead of silently disabling enforcement', () => {
     mockInputs({ 'fail-on': 'critical,invalid' });
+    expect(() => parseInputs()).toThrow('Invalid severity in fail-on: invalid');
+  });
 
-    parseInputs();
+  it('accepts explicit advisory mode without a warning', () => {
+    mockInputs({ 'fail-on': 'never' });
+    expect(parseInputs().failOn).toEqual(['never']);
+    expect(mockedCore.warning).not.toHaveBeenCalled();
+  });
 
-    expect(mockedCore.warning).toHaveBeenCalledWith(
-      expect.stringContaining('Invalid severity in fail-on: invalid'),
+  it.each(['never,high', 'never,never'])(
+    'rejects ambiguous advisory mode %s',
+    (value) => {
+      mockInputs({ 'fail-on': value });
+      expect(() => parseInputs()).toThrow('fail-on: never must be used alone');
+    },
+  );
+
+  it('rejects advisory mode combined with a class gate', () => {
+    mockInputs({ 'fail-on': 'never', 'fail-on-class': 'security' });
+    expect(() => parseInputs()).toThrow(
+      'fail-on: never cannot be combined with fail-on-class',
     );
   });
 

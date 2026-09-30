@@ -272,10 +272,18 @@ export function parseInputs(): ActionInputs {
   }
 
   // Validate fail-on values
-  const validSeverities = ['critical', 'high', 'medium', 'low'];
+  const validSeverities = ['critical', 'high', 'medium', 'low', 'never'];
+  if (failOn.includes('never')) {
+    if (failOn.length !== 1) {
+      throw new Error('fail-on: never must be used alone');
+    }
+    if (failOnClassInput.trim()) {
+      throw new Error('fail-on: never cannot be combined with fail-on-class');
+    }
+  }
   for (const severity of failOn) {
     if (!validSeverities.includes(severity)) {
-      core.warning(
+      throw new Error(
         `Invalid severity in fail-on: ${severity}. Valid values: ${validSeverities.join(', ')}`,
       );
     }
@@ -294,7 +302,14 @@ export function parseInputs(): ActionInputs {
   if (uploadArtifact) {
     core.info(`  Artifact Name: ${artifactName}`);
   }
-  core.info(`  Fail On: ${failOn.length > 0 ? failOn.join(', ') : '(none)'}`);
+  core.info(
+    `  Fail On: ${failOn.length > 0 ? failOn.join(', ') : '(all severities)'}`,
+  );
+  if (failOn.includes('never')) {
+    core.info(
+      '  Advisory scan: findings are reported without failing the step. CLI errors and explicit guardrails still fail.',
+    );
+  }
   core.info(
     `  Fail On Pillars: ${failOnPillars === 'all' ? 'all' : failOnPillars.join(', ')}`,
   );
