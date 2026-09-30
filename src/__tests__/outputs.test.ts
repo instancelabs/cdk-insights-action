@@ -345,6 +345,28 @@ describe('setOutputs', () => {
     );
   });
 
+  it('keeps findings and report outputs visible in advisory mode', () => {
+    setOutputs(
+      baseResults,
+      ['/results.json'],
+      ['never'],
+      [],
+      ['/results.sarif'],
+      42,
+    );
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('exit-code', '0');
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('total-issues', '10');
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('critical-count', '1');
+    expect(mockedCore.setOutput).toHaveBeenCalledWith(
+      'sarif-file',
+      '/results.sarif',
+    );
+    expect(mockedCore.setOutput).toHaveBeenCalledWith('artifact-id', '42');
+    expect(buildFailReasons(baseResults, ['never'], [], ['security'])).toEqual(
+      [],
+    );
+  });
+
   it('joins multiple json file paths', () => {
     setOutputs(baseResults, ['/stack1.json', '/stack2.json'], [], [], [], null);
 
