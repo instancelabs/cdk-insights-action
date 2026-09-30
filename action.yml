@@ -35,7 +35,7 @@ inputs:
     default: ''
 
   fail-on:
-    description: 'Fail workflow on severity levels (comma-separated: critical,high,medium,low). When omitted, any finding within fail-on-pillars fails the workflow.'
+    description: 'Fail workflow on severity levels (comma-separated: critical,high,medium,low), or never for an advisory scan. never cannot be combined with fail-on-class. CLI errors and explicit guardrails still fail. When omitted, any finding within fail-on-pillars fails the workflow.'
     required: false
     default: ''
 

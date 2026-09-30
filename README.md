@@ -67,7 +67,7 @@ jobs:
 | `stack-name` | Specific stack to analyze. Omit to analyze every stack (`--all`). | No | (all stacks) |
 | `ai-analysis` | Enable AI-powered recommendations. Requires `license-key`. Set to `false` with a license key to pass `--local` and force static-only analysis. | No | `false` |
 | `ai-model` | Model alias: `glm-4-7-flash` (0.5 credits/resource), `nova-lite` (0.5), `mistral-14b` (1), `haiku-4-5` (4), or `sonnet-4-6` (16). Requires CLI 1.60.0+. Omit to use the CLI default, GLM 4.7 Flash. | No | CLI default |
-| `fail-on` | Fail workflow on severity levels (comma-separated: `critical,high,medium,low`). Omit to fail on any finding within `fail-on-pillars` scope. | No | - |
+| `fail-on` | Fail workflow on severity levels (comma-separated: `critical,high,medium,low`), or `never` for an advisory scan. Omit to fail on any finding within `fail-on-pillars` scope. Invalid values fail configuration validation. | No | - |
 | `fail-on-pillars` | Which Well-Architected pillars count toward `fail-on`. Comma-separated list of `security`, `reliability`, `cost optimization`, `operational excellence`, `performance efficiency`, `sustainability`, or the shorthand `all`. Findings from other pillars are still reported but won't block the deploy. | No | `security` |
 | `fail-on-class` | Fail the build on findings of these **classes**, regardless of severity or pillar. Comma-separated list of `security`, `best-practice`, `compliance`. Orthogonal to `fail-on` / `fail-on-pillars` - block on real risk while best-practice advice stays advisory. Use `cdk-insights >= 1.60.1` so static, CDK Nag, validation, and AI findings are all classified. | No | (off) |
 | `pr-comment` | Post analysis summary as a PR comment (uses the `gh` CLI, authenticated via the workflow's `GITHUB_TOKEN`). | No | `true` |
@@ -175,6 +175,43 @@ Force static analysis even when a license key is present (passes `--local` to th
     license-key: ${{ secrets.CDK_INSIGHTS_LICENSE_KEY }}
     ai-analysis: false
 ```
+
+### Start with an advisory scan
+
+Use `fail-on: never` while reviewing findings and agreeing on justified exceptions:
+
+```yaml
+- uses: instancelabs/cdk-insights-action@v1
+  with:
+    fail-on: never
+    pr-comment: true
+    upload-artifact: true
+```
+
+All findings, severity counts, PR comments and requested reports remain available;
+the scan's `exit-code` output is `0`. Installation, synthesis and CLI errors still
+fail the step, as do separately enabled deployment, policy, reliability and live
+checks. Do not use `continue-on-error` to hide those failures.
+
+`never` must be used alone and cannot be combined with `fail-on-class`. Omitting
+`fail-on` is **not** advisory: it blocks on every severity in the selected pillars.
+
+For an intentional exception, add a reason to `.cdk-insights.json`:
+
+```json
+{
+  "ignoreRules": [
+    { "id": "ecs-service-connect-access-logs-missing", "reason": "Development-only service; production keeps access logs enabled" }
+  ]
+}
+```
+
+This suppresses the rule across the project. For a narrower exception with the
+CDK Insights synth plugin, use CDK 2.271.0 or later and
+`Validations.of(resource).acknowledge({ id: 'cdk-insights::ecs-service-connect-access-logs-missing', reason: '...' })`
+on the intended construct. Recheck the report with an unsuppressed example before
+enabling enforcement. When ready, replace `never` with `critical,high` and select
+the pillars your team wants to gate.
 
 ### Fail on Critical/High Security Issues
 

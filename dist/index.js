@@ -95797,10 +95797,18 @@ function parseInputs() {
   if (!["never", "drift", "risk"].includes(liveFailOn)) {
     throw new Error(`Invalid live-fail-on: ${liveFailOn}`);
   }
-  const validSeverities = ["critical", "high", "medium", "low"];
+  const validSeverities = ["critical", "high", "medium", "low", "never"];
+  if (failOn.includes("never")) {
+    if (failOn.length !== 1) {
+      throw new Error("fail-on: never must be used alone");
+    }
+    if (failOnClassInput.trim()) {
+      throw new Error("fail-on: never cannot be combined with fail-on-class");
+    }
+  }
   for (const severity of failOn) {
     if (!validSeverities.includes(severity)) {
-      warning(
+      throw new Error(
         `Invalid severity in fail-on: ${severity}. Valid values: ${validSeverities.join(", ")}`
       );
     }
@@ -95817,7 +95825,14 @@ function parseInputs() {
   if (uploadArtifact2) {
     info(`  Artifact Name: ${artifactName}`);
   }
-  info(`  Fail On: ${failOn.length > 0 ? failOn.join(", ") : "(none)"}`);
+  info(
+    `  Fail On: ${failOn.length > 0 ? failOn.join(", ") : "(all severities)"}`
+  );
+  if (failOn.includes("never")) {
+    info(
+      "  Advisory scan: findings are reported without failing the step. CLI errors and explicit guardrails still fail."
+    );
+  }
   info(
     `  Fail On Pillars: ${failOnPillars === "all" ? "all" : failOnPillars.join(", ")}`
   );
