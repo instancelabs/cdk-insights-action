@@ -14,6 +14,26 @@ on:
       tag:
         description: Tag to release (e.g. v1.3.1)
         required: true
+      factory_action_id:
+        description: Exact approved factory action; leave empty for ordinary manual releases
+        type: string
+        required: false
+      factory_source_sha:
+        description: Immutable source and workflow commit approved by the factory
+        type: string
+        required: false
+      factory_deadline:
+        description: Original factory execution deadline (UTC)
+        type: string
+        required: false
+      factory_version:
+        description: Exact reviewed package version
+        type: string
+        required: false
+      factory_expected_major_ref:
+        description: Expected old rolling-major tag object; empty means absent
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -26,6 +46,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ inputs.factory_source_sha || github.sha }}
+      - name: Verify factory release identity
+        run: node .github/factory/release-protocol.mjs guard
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
@@ -41,6 +65,8 @@ jobs:
 
       - name: Build
         run: npm run build
+      - name: Require reviewed compiled Action bytes
+        run: git diff --exit-code -- dist/
 
       - name: Lint
         run: npm run lint
@@ -64,18 +90,36 @@ jobs:
           fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
+      - name: Bind the version tag to the reviewed commit
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          node .github/factory/release-protocol.mjs guard
+          REMOTE=$(git ls-remote --refs origin "refs/tags/$VERSION")
+          if [ -n "$REMOTE" ]; then
+            git fetch --no-tags origin "refs/tags/$VERSION"
+            ACTUAL=$(git rev-parse "FETCH_HEAD^{commit}")
+            if [ "$ACTUAL" != "$GITHUB_SHA" ]; then
+              echo "::error::Version tag identifies another source commit"
+              exit 1
+            fi
+          else
+            git tag "$VERSION" "$GITHUB_SHA"
+            git push origin "refs/tags/$VERSION"
+          fi
       - name: Create Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          node .github/factory/release-protocol.mjs guard
           NOTES=$(cat <<EOF
           ## CDK Insights Action $VERSION
-
+        
           See [CHANGELOG.md](https://github.com/instancelabs/cdk-insights-action/blob/main/CHANGELOG.md) for details.
-
+        
           ### Usage
-
+        
           \`\`\`yaml
           - uses: instancelabs/cdk-insights-action@$VERSION
             with:
@@ -91,7 +135,7 @@ jobs:
               --notes "$NOTES" \
               --draft=false --prerelease=false
           else
-            gh release create "$VERSION" \
+            gh release create "$VERSION" --target "$GITHUB_SHA" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$VERSION" \
               --notes "$NOTES"
@@ -101,10 +145,48 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
-          MAJOR=$(echo "$VERSION" | cut -d. -f1)
-
+          node .github/factory/release-protocol.mjs guard
+          MAJOR="v${VERSION#v}"
+          MAJOR="${MAJOR%%.*}"
+          CURRENT=$(git ls-remote --refs origin "refs/tags/$MAJOR" | cut -f1)
+          if [ -n "$FACTORY_ACTION_ID" ] && [ "$CURRENT" != "$FACTORY_EXPECTED_MAJOR_REF" ]; then
+            echo "::error::Rolling major tag changed after approval"
+            exit 1
+          fi
           git config user.name github-actions
           git config user.email github-actions@github.com
-
-          git tag -fa "$MAJOR" -m "Update $MAJOR tag to $VERSION"
-          git push origin "$MAJOR" --force
+          git tag -fa "$MAJOR" -m "Update $MAJOR tag to $VERSION" "$GITHUB_SHA"
+          git push "--force-with-lease=refs/tags/$MAJOR:$CURRENT" origin "refs/tags/$MAJOR"
+    timeout-minutes: 15
+    if: "${{ (true) && !(github.event_name == 'push' && github.ref_type == 'branch' && startsWith(github.event.head_commit.message, 'chore(factory-release): ')) }}"
+  factory-observe:
+    name: Factory post-release verification
+    needs:
+      - release
+    if: ${{ always() && needs['release'].result != 'skipped' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      FACTORY_RELEASE_RESULT: ${{ needs['release'].result }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.factory_source_sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: "24"
+      - name: Observe the released target without application writes
+        run: node .github/factory/release-protocol.mjs observe
+run-name: ${{ inputs.factory_action_id && format('Factory release {0}', inputs.factory_action_id) || github.workflow }}
+env:
+  FACTORY_TARGET: cdk-insights-action-release
+  FACTORY_ACTION_ID: ${{ inputs.factory_action_id }}
+  FACTORY_SOURCE_SHA: ${{ inputs.factory_source_sha }}
+  FACTORY_DEADLINE: ${{ inputs.factory_deadline }}
+  FACTORY_VERSION: ${{ inputs.factory_version }}
+  FACTORY_TAG: ${{ inputs.tag }}
+  FACTORY_EXPECTED_MAJOR_REF: ${{ inputs.factory_expected_major_ref }}
