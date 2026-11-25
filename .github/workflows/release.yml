@@ -190,3 +190,7 @@ env:
   FACTORY_VERSION: ${{ inputs.factory_version }}
   FACTORY_TAG: ${{ inputs.tag }}
   FACTORY_EXPECTED_MAJOR_REF: ${{ inputs.factory_expected_major_ref }}
+concurrency:
+  group: release-${{ github.repository }}-distribution
+  queue: max
+  cancel-in-progress: false
